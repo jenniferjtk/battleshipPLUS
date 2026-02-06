@@ -1,0 +1,9 @@
+# OS / editor junk
+.DS_Store
+.vscode/
+
+# XAMPP / local data
+data/*.json
+
+# Node-style junk (just in case)
+node_modules/
