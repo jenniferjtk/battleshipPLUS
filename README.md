@@ -57,35 +57,6 @@ The project was developed using intentional “vibe coding,” where AI-assisted
 
 ---
 
-## Architecture Snapshot
-
-### Client Responsibilities
-- UI rendering (boards, ships, hits, misses)
-- Event handling (clicks, buttons)
-- Turn initiation and enforcement
-- Game state transitions
-- Serialization and deserialization of game state
-
-### Server Responsibilities
-- Persistent storage only
-- Save/load JSON game state
-- No game rule enforcement
-
-### State Ownership
-- Game state lives primarily on the client
-- Server acts as durable storage
-- State is explicitly revived after load
-
-### State Flow
-User Action
-↓
-Client updates game state
-↓
-Optional save → Server (JSON)
-↓
-Load → Client revives state → Resume gameplay
----
-
 ## Known Limitations
 
 - Ship placement is randomized (no manual placement UI).
