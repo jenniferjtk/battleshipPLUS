@@ -90,24 +90,3 @@ A short AI prompt log is included with the submission.
 3. Start Apache
 4. Navigate to: http://localhost/battleship++/battleship++/
 
----
-
-## Demonstration
-
-A 1–2 minute Loom video accompanies this submission showing:
-- Gameplay
-- Turn-based logic
-- Save and load persistence
-- Architecture explanation
-
----
-
-## Summary
-
-This project demonstrates:
-- Explicit state management
-- Clear client/server separation
-- Persistent storage using JSON
-- Intentional AI-assisted development
-
-The focus was not on visual polish, but on **architecture, correctness, and control**.
