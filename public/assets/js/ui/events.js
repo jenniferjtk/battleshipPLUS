@@ -1,4 +1,4 @@
-import { setStatus, logMove, renderState } from "./render.js";
+import { setStatus, logMove, renderState, renderLeaderboard } from "./render.js";
 import {
   newGame,
   rerollPlayerFleet,
@@ -17,14 +17,22 @@ let state = null;
 let aiThinking = false;
 
 export function bindEvents() {
-  // fresh boot
-  state = reviveState(newGame());
-  aiThinking = false;
+// fresh boot
+state = reviveState(newGame());
+aiThinking = false;
+
+renderState(state);
+setStatus("setup — reroll ships or fire to begin");
+rebuildMoveLogFromState();
+
+fetchLeaderboard();
+autoLoadGameOnBoot();
 
   rebuildMoveLogFromState();
   renderState(state);
   setStatus("setup — reroll ships or fire to begin");
   logMove("setup: fleets placed (reroll available)");
+
 
   // ---- buttons ----
   document.querySelector("#btn-new")?.addEventListener("click", () => {
@@ -35,6 +43,7 @@ export function bindEvents() {
     renderState(state);
     setStatus("setup — reroll ships or fire to begin");
     logMove("setup: new game started");
+    fetchLeaderboard();
   });
 
   document.querySelector("#btn-reroll")?.addEventListener("click", () => {
@@ -87,7 +96,6 @@ export function bindEvents() {
   setStatus("undo complete — your turn");
 }
 
-    logMove("undo: reverted last turn");
   });
 
   document.querySelector("#btn-save")?.addEventListener("click", async () => {
@@ -150,6 +158,7 @@ export function bindEvents() {
       renderState(state);
 
       logMove("loaded saved game");
+      fetchLeaderboard();
 
       if (state.over) {
         setStatus(`loaded — game over (${state.winner} won)`);
@@ -203,6 +212,7 @@ export function bindEvents() {
 
     if (state.over) {
       setStatus("you win 🎯");
+      recordWinner("player");
       return;
     }
 
@@ -230,6 +240,7 @@ function runAiTurn() {
     if (state.over) {
       aiThinking = false;
       setStatus("computer wins 😭");
+      recordWinner("ai");
       return;
     }
 
@@ -238,6 +249,62 @@ function runAiTurn() {
   }, 450);
 }
 
+async function fetchLeaderboard() {
+  try {
+    const res = await fetch(`${API_BASE}/leaderboard.php`, { cache: "no-store" });
+    const data = await res.json();
+    if (res.ok && data.ok && data.leaderboard) {
+      renderLeaderboard(data.leaderboard);
+    }
+  } catch (e) {
+    // silent fail is fine for UI niceness
+    console.error("leaderboard load failed", e);
+  }
+}
+
+async function recordWinner(winner) {
+  try {
+    const res = await fetch(`${API_BASE}/leaderboard.php`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ winner }),
+    });
+    const data = await res.json();
+    if (res.ok && data.ok && data.leaderboard) {
+      renderLeaderboard(data.leaderboard);
+    }
+  } catch (e) {
+    console.error("leaderboard update failed", e);
+  }
+}
+async function autoLoadGameOnBoot() {
+  try {
+    const res = await fetch(`${API_BASE}/load.php`, { cache: "no-store" });
+    const data = await res.json();
+
+    if (!res.ok || !data.ok || !data.state) return; // no save, keep newGame()
+
+    state = reviveState(data.state);
+    aiThinking = false;
+
+    rebuildMoveLogFromState();
+    renderState(state);
+
+    if (state.over) {
+      setStatus(`loaded — game over (${state.winner} won)`);
+      return;
+    }
+
+    if (state.turn === "ai") {
+      setStatus("loaded — computer turn…");
+      runAiTurn();
+    } else {
+      setStatus("loaded — your turn");
+    }
+  } catch (e) {
+    console.error("autoLoadGameOnBoot failed", e);
+  }
+}
 // -------------------------
 // Persistence helpers
 // -------------------------

@@ -44,6 +44,15 @@ function renderEmptyBoard(containerId) {
     }
   }
 }
+export function renderLeaderboard(board) {
+  const p = document.querySelector("#lb-player");
+  const a = document.querySelector("#lb-ai");
+  const t = document.querySelector("#lb-total");
+
+  if (p) p.textContent = String(board?.player_wins ?? 0);
+  if (a) a.textContent = String(board?.ai_wins ?? 0);
+  if (t) t.textContent = String(board?.total_games ?? 0);
+}
 
 function paintShips(boardSelector, ships) {
   clearShips(boardSelector);
