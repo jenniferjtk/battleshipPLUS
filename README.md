@@ -88,5 +88,5 @@ A short AI prompt log is included with the submission.
 1. Install **XAMPP**
 2. Place project folder in: htdocs/battleship++/
 3. Start Apache
-4. Navigate to: http://localhost/battleship++/battleship++/
+4. Navigate to: http://localhost/battleship++/battleship++/public/
 
