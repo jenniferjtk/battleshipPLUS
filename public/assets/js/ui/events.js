@@ -1,6 +1,12 @@
 import { setStatus, logMove, renderState } from "./render.js";
-import { newGame, rerollPlayerFleet, fireShot } from "../game/engine.js";
+import {
+  newGame,
+  rerollPlayerFleet,
+  fireShot,
+  undoLastTurn,
+} from "../game/engine.js";
 import { pickRandomShot } from "../game/ai.js";
+
 
 // IMPORTANT:
 // - Use an absolute path so fetch works no matter what folder you serve from.
@@ -15,7 +21,7 @@ export function bindEvents() {
   state = reviveState(newGame());
   aiThinking = false;
 
-  clearMoveLog();
+  rebuildMoveLogFromState();
   renderState(state);
   setStatus("setup — reroll ships or fire to begin");
   logMove("setup: fleets placed (reroll available)");
@@ -25,7 +31,7 @@ export function bindEvents() {
     state = reviveState(newGame());
     aiThinking = false;
 
-    clearMoveLog();
+    rebuildMoveLogFromState();
     renderState(state);
     setStatus("setup — reroll ships or fire to begin");
     logMove("setup: new game started");
@@ -39,17 +45,53 @@ export function bindEvents() {
     }
 
     rerollPlayerFleet(state);
-    // reroll should also reset any accidental aiThinking state
     aiThinking = false;
 
+    rebuildMoveLogFromState();
     renderState(state);
     setStatus("setup — fleet rerolled");
     logMove("setup: rerolled ship placement");
   });
 
+  // UNDO button
+  document.querySelector("#btn-undo")?.addEventListener("click", () => {
+    if (aiThinking) {
+      setStatus("cannot undo while computer is thinking");
+      return;
+    }
+
+    if (!state?.moves?.length) {
+      setStatus("nothing to undo");
+      return;
+    }
+
+    const rebuilt = undoLastTurn(state);
+    if (!rebuilt) {
+      setStatus("nothing to undo");
+      return;
+    }
+
+    state = reviveState(rebuilt);
+    aiThinking = false;
+
+    rebuildMoveLogFromState();
+    renderState(state);
+
+    if (state.phase === "setup") {
+      setStatus("undo complete — back to setup");
+   } else if (state.turn === "ai") {
+  setStatus("undo complete — computer turn…");
+  runAiTurn();
+  return;
+} else {
+  setStatus("undo complete — your turn");
+}
+
+    logMove("undo: reverted last turn");
+  });
+
   document.querySelector("#btn-save")?.addEventListener("click", async () => {
     try {
-      // Convert Sets to arrays so shots ACTUALLY persist.
       const payload = serializeState(state);
 
       const res = await fetch(`${API_BASE}/save.php`, {
@@ -104,8 +146,9 @@ export function bindEvents() {
       state = reviveState(data.state);
       aiThinking = false;
 
-      clearMoveLog();
+      rebuildMoveLogFromState();
       renderState(state);
+
       logMove("loaded saved game");
 
       if (state.over) {
@@ -171,7 +214,6 @@ function runAiTurn() {
   aiThinking = true;
   setStatus("computer turn…");
 
-  // small delay so it feels turn-based
   setTimeout(() => {
     const aiCoord = pickRandomShot(state, "player");
     const aiMove = fireShot(state, "ai", "player", aiCoord);
@@ -200,12 +242,9 @@ function runAiTurn() {
 // Persistence helpers
 // -------------------------
 
-// Convert Sets to arrays so JSON.stringify doesn’t drop them.
 function serializeState(s) {
   const clone = structuredClone ? structuredClone(s) : JSON.parse(JSON.stringify(s, replacer));
 
-  // If we used structuredClone, we still need to convert Sets manually.
-  // If we used JSON+replacer, this is already handled.
   if (clone?.boards?.player) clone.boards.player.shots = normalizeShotsForSave(s.boards.player.shots);
   if (clone?.boards?.ai) clone.boards.ai.shots = normalizeShotsForSave(s.boards.ai.shots);
 
@@ -226,7 +265,6 @@ function normalizeShotsForSave(shots) {
 
 // revive board.shots back into Set() after JSON load
 function reviveState(loaded) {
-  // basic defaults if missing
   if (!loaded.moves) loaded.moves = [];
   if (!("over" in loaded)) loaded.over = false;
   if (!("winner" in loaded)) loaded.winner = null;
@@ -240,16 +278,13 @@ function reviveState(loaded) {
 
 function reviveBoard(board) {
   if (!board) return;
-
   if (board.shots instanceof Set) return;
 
-  // case 1: shots saved as array ["r,c", ...]
   if (Array.isArray(board.shots)) {
     board.shots = new Set(board.shots);
     return;
   }
 
-  // case 2: shots came back as object {"r,c": true, ...}
   if (board.shots && typeof board.shots === "object") {
     board.shots = new Set(Object.keys(board.shots));
     return;
@@ -265,6 +300,15 @@ function reviveBoard(board) {
 function clearMoveLog() {
   const list = document.querySelector("#move-log");
   if (list) list.innerHTML = "";
+}
+
+function rebuildMoveLogFromState() {
+  clearMoveLog();
+  if (!state?.moves?.length) return;
+
+  for (const move of state.moves) {
+    logMove(move.actor === "ai" ? formatAIMove(move) : formatMove(move));
+  }
 }
 
 function formatMove(move) {

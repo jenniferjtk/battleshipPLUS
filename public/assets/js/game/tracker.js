@@ -1,3 +1,5 @@
+// Shot-tracking helpers: resolves whether a coordinate is a hit or miss by
+// scanning ship cells, and maps a hit index to a readable segment label.
 import { shipCells } from "./ships.js";
 
 export function resolveShot(board, coord) {
